@@ -3,7 +3,6 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.orm import DeclarativeBase
 from ..core.config import settings
 
-
 # 1. The engine: the actual connection "pipe" to PostgreSQL
 engine = create_async_engine(
     settings.DATABASE_URL,
