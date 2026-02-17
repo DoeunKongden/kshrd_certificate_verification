@@ -11,6 +11,6 @@ class TemplateRead(BaseModel):
     description: Optional[str] = None
 
     # Layout configuration
-    layout_config = Optional[Dict[str, Any]] = None
+    layout_config: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)

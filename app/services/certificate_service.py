@@ -1,21 +1,50 @@
+import json
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 from app.core.exceptions import CertificateNotFoundError
 from app.models.certificate import Certificate
 from app.models.certificate_type import CertificateType
 from app.models.curriculum import Subject
+from app.models.user import User
+from app.services.keycloak_service import KeycloakService
+from app.schemas.template import TemplateRead
+from app.schemas.curriculum import SubjectDetail
 import logging
+from app.core import redis
 
 
 logger = logging.getLogger(__name__)
 
 
+def _build_normalized_response(cert, student_name: str, student_photo: str | None, generation_name: str) -> dict:
+    """Build a normalized dict ready for CertificateVerifyResponse from DB result."""
+    template_data = None
+    if cert.type and cert.type.template:
+        template_data = TemplateRead.model_validate(cert.type.template).model_dump(mode="json")
+
+    subject_data = None
+    if cert.subject:
+        subject_data = SubjectDetail.model_validate(cert.subject).model_dump(mode="json")
+
+    return {
+        "certificate_number": cert.certificate_number,
+        "issued_date": cert.issued_date.isoformat(),
+        "verify_code": cert.verify_code,
+        "target_role": cert.type.target_role if cert.type else "STUDENT",
+        "template": template_data,
+        "subject_detail": subject_data,
+        "student_name": student_name,
+        "student_photo": student_photo,
+        "generation_name": generation_name,
+    }
+
 
 class CertificateService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, keycloak: KeycloakService):
         self.db = db
+        self.keycloak = keycloak
 
     async def get_by_code(self, code: str):
         """Find a certificate in postgresql by it code"""
@@ -23,13 +52,31 @@ class CertificateService:
         if not code:
             raise ValueError("Verification code cannot be empty.")
 
+        cache_key = f"cert_verify:{code}"
+
+        # Cached Hit & Cached Miss Logic
+        try:
+            cached_data = await redis.redis_client.get(cache_key)
+            if cached_data:
+                parsed = json.loads(cached_data)
+                # Backward compatibility: skip old-format entries (missing target_role)
+                if parsed.get("target_role") is not None:
+                    logger.info(f"Cached Hit for code : {code}")
+                    return parsed
+                # Old format - fall through to DB; will repopulate cache with new format
+        except Exception as e:
+            logger.warning(f"Redis lookup failed: {e}")
+
         try:
             query = (
                 select(Certificate)
                 .where(Certificate.verify_code == code)
                 .options(
-                    selectinload(Certificate.type).selectinload(CertificateType.template),
-                    selectinload(Certificate.subject).selectinload(Subject.topics)
+                    selectinload(Certificate.type).selectinload(
+                        CertificateType.template
+                    ),
+                    selectinload(Certificate.subject).selectinload(Subject.topics),
+                    joinedload(Certificate.user).joinedload(User.generation),
                 )
             )
 
@@ -37,18 +84,49 @@ class CertificateService:
             cert = result.scalar_one_or_none()
 
             if cert is None:
-                raise CertificateNotFoundError(code)
+                raise CertificateNotFoundError(code=code)
 
-            return cert
+            generation_name = "N/A"
+            if cert.user and cert.user.generation:
+                generation_name = cert.user.generation.name
+
+            student_name = "User not Found"
+            student_photo = None
+
+            if cert.user_id:
+                user_profile = await self.keycloak.get_user_profile(str(cert.user_id))
+
+                if user_profile:
+                    student_name = user_profile.full_name_en
+                    student_photo = user_profile.photo_url
+
+                else:
+                    logger.warning(
+                        f"Keycloak sync issue: User {cert.user_id} not found"
+                    )
+
+            # Build normalized response (same shape for both cache and DB paths)
+            normalized = _build_normalized_response(
+                cert=cert,
+                student_name=student_name,
+                student_photo=student_photo,
+                generation_name=generation_name,
+            )
+
+            # Save to redis for future cache hits
+            await redis.redis_client.setex(cache_key, 3600, json.dumps(normalized))
+
+            return normalized
 
         except (CertificateNotFoundError, ValueError):
             raise
 
-
         except SQLAlchemyError as e:
             logger.error(f"Database error during certificate lookup: {e}")
-            raise ConnectionError("Database service is currently unavailable or down.")
-        
+            raise ConnectionError(
+                f"Database service is currently unavailable or down detail: {e}"
+            )
+
         except Exception as e:
             logger.critical(f"Unexpected error in Certificate Service: {e}")
             raise

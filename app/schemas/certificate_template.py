@@ -1,17 +1,28 @@
-from pydantic import BaseModel, ConfigDict, UUID4
-from typing import Optional, Dict, Any
+from pydantic import BaseModel, ConfigDict, UUID4, Field
+from typing import Optional, List, Dict, Any
 
+# 1. The structural "rules" for a single UI element (text, image, signature)
+class TemplateElement(BaseModel):
+    type: str = Field(..., description="e.g., 'text', 'image', 'qr_code'")
+    label: str = Field(..., description="The internal name like 'student_name'")
+    x: int = Field(..., ge=0)
+    y: int = Field(..., ge=0)
+    width: Optional[int] = None
+    height: Optional[int] = None
+    style: Optional[Dict[str, Any]] = None # For custom CSS or font properties
 
-class TemplateRead(BaseModel):
-    """
-    Schema response for Dynamic UI/Layout
-    """
-
-    id: UUID4
-    name: str
+# 2. Base Schema (Shared fields)
+class TemplateBase(BaseModel):
+    name: str = Field(..., min_length=3, max_length=100)
     description: Optional[str] = None
+    # Best Practice: Define layout_config as a List of elements rather than a generic Dict
+    layout_config: List[TemplateElement]
 
-    # This will hold our CSS/UI variables
-    layout_config: Optional[Dict[str, Any]] = None
+# 3. Create Schema (What the Admin sends to POST /templates)
+class TemplateCreate(TemplateBase):
+    pass
 
+# 4. Read Schema (What the API returns)
+class TemplateRead(TemplateBase):
+    id: UUID4
     model_config = ConfigDict(from_attributes=True)

@@ -13,7 +13,7 @@ class CertificateType(Base):
     target_role = Column(String(20), nullable=False, default="STUDENT") # 'STUDENT' or 'STAFF'
     
     # The UUID link to your new Template model
-    template_id = Column(UUID(as_uuid=True), ForeignKey("certificate_templates.id"))
+    template_id = Column(UUID(as_uuid=True), ForeignKey("certificate_template.id"))
     
     # Relationships
     template = relationship("CertificateTemplate", back_populates="certificate_types")

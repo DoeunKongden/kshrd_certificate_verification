@@ -1,0 +1,56 @@
+from fastapi import APIRouter, Depends, HTTPException, Path, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
+
+from app.db.database import get_db
+from app.services.template_service import TemplateService
+from app.schemas.certificate_template import TemplateCreate, TemplateRead
+
+
+router = APIRouter()
+
+
+def get_template_service(db: AsyncSession = Depends(get_db)) -> TemplateService:
+    return TemplateService(db=db)
+
+
+@router.post(
+    "/",
+    response_model=TemplateRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new certificate template"
+)
+async def create_template(
+    payload: TemplateCreate,
+    service: TemplateService = Depends(get_template_service)
+):
+    try:
+        return await service.create(payload)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get(
+    "/",
+    response_model=list[TemplateRead],
+    summary="Get all certificate templates"
+)
+async def get_templates(
+    service: TemplateService = Depends(get_template_service)
+):
+    return await service.get_all()
+
+
+@router.get(
+    "/{template_id}",
+    response_model=TemplateRead,
+    summary="Get a certificate template by ID"
+)
+async def get_template(
+    template_id: UUID = Path(..., description="The UUID of the template"),
+    service: TemplateService = Depends(get_template_service)
+):
+    try:
+        return await service.get_by_id(template_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))

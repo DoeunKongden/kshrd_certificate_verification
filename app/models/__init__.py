@@ -2,7 +2,8 @@ from ..db.database import Base
 from .generation import Generation
 from .user import User
 from .curriculum import Subject, Topic
-from .certificate import Certificate, CertificateType
+from .certificate import Certificate
+from .certificate_template import CertificateTemplate
 
 # This list makes it easy to see all your entities in one place
 __all__ = [
@@ -12,5 +13,6 @@ __all__ = [
     "Subject", 
     "Topic", 
     "Certificate", 
-    "CertificateType"
+    "CertificateType",
+    "CertificateTemplate"
 ]
