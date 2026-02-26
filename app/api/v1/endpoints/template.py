@@ -4,11 +4,9 @@ from uuid import UUID
 
 from app.db.database import get_db
 from app.services.template_service import TemplateService
-from app.schemas.certificate_template import TemplateCreate, TemplateRead
-
+from app.schemas.certificate_template import TemplateCreate, TemplateRead, TemplateUpdate
 
 router = APIRouter()
-
 
 def get_template_service(db: AsyncSession = Depends(get_db)) -> TemplateService:
     return TemplateService(db=db)
@@ -52,5 +50,38 @@ async def get_template(
 ):
     try:
         return await service.get_by_id(template_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.patch(
+    "/{template_id}",
+    response_model=TemplateRead,
+    summary="Update a certificate template"
+)
+async def update_template(
+    template_id: UUID = Path(..., description="The UUID of the template"),
+    payload: TemplateUpdate = ...,
+    service: TemplateService = Depends(get_template_service)
+):
+    try:
+        return await service.update(template_id, payload)
+    except ValueError as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete(
+    "/{template_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a certificate template"
+)
+async def delete_template(
+    template_id: UUID = Path(..., description="The UUID of the template"),
+    service: TemplateService = Depends(get_template_service)
+):
+    try:
+        await service.delete(template_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

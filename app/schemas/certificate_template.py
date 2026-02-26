@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, UUID4, Field
+from pydantic import BaseModel, ConfigDict, UUID4, Field, field_validator
 from typing import Optional, List, Dict, Any
 
 # 1. The structural "rules" for a single UI element (text, image, signature)
@@ -26,3 +26,18 @@ class TemplateCreate(TemplateBase):
 class TemplateRead(TemplateBase):
     id: UUID4
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator('layout_config', mode='before')
+    @classmethod
+    def convert_layout_config(cls, v):
+        if v is None:
+            return []
+        if isinstance(v, dict):
+            return []
+        return v
+
+# 5. Update Schema
+class TemplateUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=3, max_length=100)
+    description: Optional[str] = None
+    layout_config: Optional[List[TemplateElement]] = None

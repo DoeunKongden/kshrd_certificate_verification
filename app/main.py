@@ -1,15 +1,13 @@
 from contextlib import asynccontextmanager
 import logging
-from fastapi import Depends, FastAPI
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.database import get_db
+from fastapi import FastAPI
 from app.core.redis import init_redis, close_redis
 from app.api.v1.endpoints.certificate import router as certificate_router
 from app.api.v1.endpoints.template import router as template_router
+from app.api.v1.endpoints.certificate_type import router as certificate_type_router
 from app.core.exceptions import CertificateNotFoundError
 from fastapi.responses import JSONResponse
 from fastapi.requests import Request
-from sqlalchemy import text
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -79,36 +77,16 @@ async def certificate_not_found_handler(
     )
 
 
-@app.get("/")
-async def root():
-    return {"message": "Welcome to Certificate Service API"}
-
-
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
-
-
-@app.get("/db_health_check")
-async def check_db(db: AsyncSession = Depends(get_db)):
-    """Check database connection health"""
-    try:
-        result = await db.execute(text("SELECT version();"))
-        version = result.scalar()
-        return {"status": "online", "database_version": version}
-    except Exception as e:
-        return JSONResponse(
-            status_code=503,
-            content={"status": "offline", "error": str(e)}
-        )
-
-
 app.include_router(
     certificate_router, prefix="/api/v1/certificate", tags=["Certificates"]
 )
 
 app.include_router(
     template_router, prefix="/api/v1/templates", tags=["Templates"]
+)
+
+app.include_router(
+    certificate_type_router, prefix="/api/v1/certificate-types", tags=["Certificate Types"]
 )
 
 

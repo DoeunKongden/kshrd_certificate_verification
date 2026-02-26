@@ -9,7 +9,6 @@ from app.models.certificate_type import CertificateType
 from app.models.curriculum import Subject
 from app.models.user import User
 from app.services.keycloak_service import KeycloakService
-from app.schemas.template import TemplateRead
 from app.schemas.curriculum import SubjectDetail
 import logging
 from app.core import redis
@@ -20,24 +19,28 @@ logger = logging.getLogger(__name__)
 
 def _build_normalized_response(cert, student_name: str, student_photo: str | None, generation_name: str) -> dict:
     """Build a normalized dict ready for CertificateVerifyResponse from DB result."""
-    template_data = None
-    if cert.type and cert.type.template:
-        template_data = TemplateRead.model_validate(cert.type.template).model_dump(mode="json")
+    layout_config = []
+    if cert.type and cert.type.template and cert.type.template.layout_config is not None:
+        layout_config = cert.type.template.layout_config if isinstance(cert.type.template.layout_config, list) else []
 
     subject_data = None
     if cert.subject:
         subject_data = SubjectDetail.model_validate(cert.subject).model_dump(mode="json")
 
-    return {
+    certificate_data = {
         "certificate_number": cert.certificate_number,
         "issued_date": cert.issued_date.isoformat(),
         "verify_code": cert.verify_code,
         "target_role": cert.type.target_role if cert.type else "STUDENT",
-        "template": template_data,
         "subject_detail": subject_data,
         "student_name": student_name,
         "student_photo": student_photo,
         "generation_name": generation_name,
+    }
+
+    return {
+        "certificate_data": certificate_data,
+        "layout_config": layout_config,
     }
 
 
@@ -59,8 +62,8 @@ class CertificateService:
             cached_data = await redis.redis_client.get(cache_key)
             if cached_data:
                 parsed = json.loads(cached_data)
-                # Backward compatibility: skip old-format entries (missing target_role)
-                if parsed.get("target_role") is not None:
+                # Backward compatibility: check for new structure with certificate_data
+                if parsed.get("certificate_data") is not None and parsed.get("layout_config") is not None:
                     logger.info(f"Cached Hit for code : {code}")
                     return parsed
                 # Old format - fall through to DB; will repopulate cache with new format
@@ -72,7 +75,7 @@ class CertificateService:
                 select(Certificate)
                 .where(Certificate.verify_code == code)
                 .options(
-                    selectinload(Certificate.type).selectinload(
+                    joinedload(Certificate.type).joinedload(
                         CertificateType.template
                     ),
                     selectinload(Certificate.subject).selectinload(Subject.topics),
