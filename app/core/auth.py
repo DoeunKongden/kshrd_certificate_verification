@@ -1,10 +1,7 @@
-import token
 from typing import Optional
 
-from fastapi import Depends, security
-from fastapi.dependencies.models import Dependant
 import jwt
-from fastapi import HTTPException, Security, status
+from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWKClient
 
@@ -14,8 +11,8 @@ from app.core.config import settings
 # auto_error=False lets us return a custom 401 message
 security = HTTPBearer(auto_error=False)
 
-# PyJWTClient fetches the JWKS from Keycloak and caches keys (handle rotation)
-_jwks_client = Optional[PyJWKClient] = None
+# PyJWKClient fetches the JWKS from Keycloak and caches keys (handles rotation)
+_jwks_client: Optional[PyJWKClient] = None
 
 
 def get_jwks_client() -> PyJWKClient:
@@ -35,7 +32,7 @@ def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> dict:
     """
-    FastAPI dependency that verifies the JWT and returns the tokenb payload.
+    FastAPI dependency that verifies the JWT and returns the token payload.
     Use as: current_user: dict = Depends(get_current_user)
     """
 

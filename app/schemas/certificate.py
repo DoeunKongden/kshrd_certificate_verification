@@ -1,7 +1,20 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import date
+from uuid import UUID
 from app.schemas.curriculum import SubjectDetail
 from typing import Optional, List, Dict, Any
+
+
+class CertificateListItem(BaseModel):
+    """Summary of a certificate for list views (e.g. student's certificates)"""
+    id: UUID
+    certificate_number: str
+    issued_date: date
+    verify_code: str
+    type_name: str
+    target_role: str
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CertificateData(BaseModel):

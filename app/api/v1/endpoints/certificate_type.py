@@ -5,6 +5,8 @@ from app.db.database import get_db
 from app.services.certificate_type_service import CertificateTypeService
 from app.schemas.certificate_type import CertificateTypeCreate, CertificateTypeUpdate, CertificateTypeRead
 
+from app.core.auth import get_current_user
+
 router = APIRouter()
 
 
@@ -20,7 +22,8 @@ def get_certificate_type_service(db: AsyncSession = Depends(get_db)) -> Certific
 )
 async def create_certificate_type(
     payload: CertificateTypeCreate,
-    service: CertificateTypeService = Depends(get_certificate_type_service)
+    service: CertificateTypeService = Depends(get_certificate_type_service),
+    current_user: dict = Depends(get_current_user)
 ):
     try:
         return await service.create(payload)
@@ -34,6 +37,7 @@ async def create_certificate_type(
     summary="Get all certificate types"
 )
 async def get_certificate_types(
+    current_user: dict = Depends(get_current_user),
     service: CertificateTypeService = Depends(get_certificate_type_service)
 ):
     return await service.get_all()
@@ -46,6 +50,7 @@ async def get_certificate_types(
 )
 async def get_certificate_type(
     type_id: int = Path(..., description="The ID of the certificate type"),
+    current_user: dict = Depends(get_current_user),
     service: CertificateTypeService = Depends(get_certificate_type_service)
 ):
     try:
@@ -62,6 +67,7 @@ async def get_certificate_type(
 async def update_certificate_type(
     type_id: int = Path(..., description="The ID of the certificate type"),
     payload: CertificateTypeUpdate = ...,
+    current_user: dict = Depends(get_current_user),
     service: CertificateTypeService = Depends(get_certificate_type_service)
 ):
     try:
@@ -77,6 +83,7 @@ async def update_certificate_type(
 )
 async def delete_certificate_type(
     type_id: int = Path(..., description="The ID of the certificate type"),
+    current_user: dict = Depends(get_current_user),
     service: CertificateTypeService = Depends(get_certificate_type_service)
 ):
     try:

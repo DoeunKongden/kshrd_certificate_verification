@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
+from app.core.auth import get_current_user
 from app.db.database import get_db
 from app.services.template_service import TemplateService
 from app.schemas.certificate_template import TemplateCreate, TemplateRead, TemplateUpdate
@@ -20,6 +21,7 @@ def get_template_service(db: AsyncSession = Depends(get_db)) -> TemplateService:
 )
 async def create_template(
     payload: TemplateCreate,
+    current_user: dict = Depends(get_current_user),
     service: TemplateService = Depends(get_template_service)
 ):
     try:
@@ -34,6 +36,7 @@ async def create_template(
     summary="Get all certificate templates"
 )
 async def get_templates(
+    current_user: dict = Depends(get_current_user),
     service: TemplateService = Depends(get_template_service)
 ):
     return await service.get_all()
@@ -46,6 +49,7 @@ async def get_templates(
 )
 async def get_template(
     template_id: UUID = Path(..., description="The UUID of the template"),
+    current_user: dict = Depends(get_current_user),
     service: TemplateService = Depends(get_template_service)
 ):
     try:
@@ -62,6 +66,7 @@ async def get_template(
 async def update_template(
     template_id: UUID = Path(..., description="The UUID of the template"),
     payload: TemplateUpdate = ...,
+    current_user: dict = Depends(get_current_user),
     service: TemplateService = Depends(get_template_service)
 ):
     try:
@@ -79,6 +84,7 @@ async def update_template(
 )
 async def delete_template(
     template_id: UUID = Path(..., description="The UUID of the template"),
+    current_user: dict = Depends(get_current_user),
     service: TemplateService = Depends(get_template_service)
 ):
     try:

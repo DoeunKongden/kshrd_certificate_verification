@@ -1,4 +1,5 @@
 import json
+from uuid import UUID
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -133,3 +134,25 @@ class CertificateService:
         except Exception as e:
             logger.critical(f"Unexpected error in Certificate Service: {e}")
             raise
+
+    async def get_by_user_id(self, user_id: str) -> list:
+        """Get all certificates for a user (for /me/certificates endpoint)."""
+        query = (
+            select(Certificate)
+            .where(Certificate.user_id == UUID(user_id))
+            .options(joinedload(Certificate.type))
+            .order_by(Certificate.issued_date.desc())
+        )
+        result = await self.db.execute(query)
+        certs = result.scalars().unique().all()
+        return [
+            {
+                "id": cert.id,
+                "certificate_number": cert.certificate_number,
+                "issued_date": cert.issued_date,
+                "verify_code": cert.verify_code,
+                "type_name": cert.type.name if cert.type else "Unknown",
+                "target_role": cert.type.target_role if cert.type else "STUDENT",
+            }
+            for cert in certs
+        ]

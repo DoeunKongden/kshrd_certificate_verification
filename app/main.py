@@ -5,6 +5,7 @@ from app.core.redis import init_redis, close_redis
 from app.api.v1.endpoints.certificate import router as certificate_router
 from app.api.v1.endpoints.template import router as template_router
 from app.api.v1.endpoints.certificate_type import router as certificate_type_router
+from app.api.v1.endpoints.me import router as me_router
 from app.core.exceptions import CertificateNotFoundError
 from fastapi.responses import JSONResponse
 from fastapi.requests import Request
@@ -59,7 +60,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origin,
     allow_credentials=True,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -87,6 +88,10 @@ app.include_router(
 
 app.include_router(
     certificate_type_router, prefix="/api/v1/certificate-types", tags=["Certificate Types"]
+)
+
+app.include_router(
+    me_router, prefix="/api/v1/me", tags=["Me"]
 )
 
 

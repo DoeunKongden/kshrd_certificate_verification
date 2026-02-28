@@ -8,6 +8,8 @@ from app.schemas.certificate import CertificateVerifyResponse
 from app.api.deps import get_keycloak_service
 
 
+
+
 router = APIRouter()
 
 # Dependency Injection Factory
